@@ -1,0 +1,2 @@
+# Trading-Checklist
+Entry Criteria
