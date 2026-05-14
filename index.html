@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Trade Check" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Trading Checklist</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --card: #0e0e1a;
+      --card-header: #09090f;
+      --border: #1e1e35;
+      --border-inner: #1a1a2e;
+      --long: #00e676;
+      --long-dim: #00e67620;
+      --short: #ff4455;
+      --short-dim: #ff445520;
+      --blue: #5588ff;
+      --text: #c8c8d8;
+      --text-dim: #3a3a50;
+      --mono: 'Share Tech Mono', monospace;
+      --display: 'Bebas Neue', sans-serif;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 60px;
+    }
+
+    #app { width: 100%; max-width: 540px; }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+    }
+    .header-left { border-left: 3px solid var(--blue); padding-left: 13px; min-width: 0; }
+    .header-sub  { color: var(--blue); font-size: 11px; letter-spacing: 0.2em; margin-bottom: 3px; }
+    .header-title {
+      font-family: var(--display);
+      font-size: 28px;
+      letter-spacing: 0.12em;
+      color: #e8e8f8;
+      line-height: 1;
+      outline: none;
+      border-bottom: 1px dashed #2a2a3f;
+      display: inline-block;
+      padding-bottom: 2px;
+      cursor: text;
+      max-width: 100%;
+    }
+    .header-title:focus { border-color: var(--blue); }
+
+    /* ── Tab switcher ── */
+    .tab-switcher {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      font-family: var(--display);
+      font-size: 17px;
+      letter-spacing: 0.12em;
+      padding: 8px 18px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: #2e2e45;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn.long-tab  { border-right: 1px solid var(--border); }
+    .tab-btn.long-tab.active  { background: var(--long-dim);  color: var(--long); }
+    .tab-btn.short-tab.active { background: var(--short-dim); color: var(--short); }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 40px #00000060;
+      transition: border-color 0.35s;
+    }
+    .card.long-mode  { border-color: #00e67628; }
+    .card.short-mode { border-color: #ff445528; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 16px;
+      background: var(--card-header);
+      border-bottom: 1px solid var(--border-inner);
+    }
+    .status-left { display: flex; align-items: center; gap: 10px; }
+    .side-badge {
+      font-family: var(--display);
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      padding: 2px 8px 1px;
+      border-radius: 3px;
+      border: 1px solid currentColor;
+    }
+    .side-badge.long  { color: var(--long); }
+    .side-badge.short { color: var(--short); }
+    .status-label {
+      font-family: var(--display);
+      font-size: 20px;
+      letter-spacing: 0.15em;
+      transition: color 0.35s;
+    }
+    .status-count { font-size: 13px; color: var(--text-dim); letter-spacing: 0.05em; }
+    .status-count b { color: #888; font-weight: normal; }
+
+    /* ── Progress ── */
+    .progress-track { height: 3px; background: var(--border-inner); }
+    .progress-fill  { height: 100%; width: 0%; transition: width 0.4s ease, background 0.4s ease; }
+
+    /* ── List ── */
+    ul.checklist { list-style: none; }
+
+    .checklist-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-inner);
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+      transition: background 0.12s;
+    }
+    .checklist-row:last-child { border-bottom: none; }
+    .checklist-row:active { background: #111120; }
+    .checklist-row.is-checked { opacity: 0.48; }
+
+    @keyframes checkPop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.5); }
+      100% { transform: scale(1); }
+    }
+    .checklist-row.pop .check-box { animation: checkPop 0.3s ease; }
+
+    .check-box {
+      width: 26px; height: 26px;
+      border: 2px solid #2e2e45;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      color: transparent;
+    }
+    .check-box.long-checked  { border-color: var(--long);  background: var(--long-dim);  color: var(--long); }
+    .check-box.short-checked { border-color: var(--short); background: var(--short-dim); color: var(--short); }
+
+    .item-text {
+      flex: 1;
+      font-size: 14px;
+      letter-spacing: 0.03em;
+      line-height: 1.45;
+      color: var(--text);
+    }
+    .item-text.crossed { text-decoration: line-through; color: var(--text-dim); }
+
+    .row-btns { display: flex; gap: 2px; flex-shrink: 0; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 7px 8px; border-radius: 4px;
+      font-size: 15px; line-height: 1;
+    }
+    .icon-btn:active { background: #1e1e30; }
+    .edit-btn   { color: var(--blue); }
+    .delete-btn { color: #333; }
+
+    /* ── Inline edit ── */
+    .edit-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-inner);
+      background: #0b0b18;
+    }
+    .edit-input {
+      flex: 1; min-width: 0;
+      background: #08080f;
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      color: #e0e0f0;
+      font-family: var(--mono);
+      font-size: 14px;
+      padding: 8px 10px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .save-btn {
+      background: #5588ff16; border: 1px solid var(--blue);
+      color: var(--blue); font-family: var(--mono);
+      font-size: 12px; padding: 8px 11px; border-radius: 4px;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .cancel-small {
+      background: none; border: 1px solid #2a2a3f; color: #3a3a55;
+      font-family: var(--mono); font-size: 12px;
+      padding: 8px 9px; border-radius: 4px; cursor: pointer; flex-shrink: 0;
+    }
+
+    /* ── Add area ── */
+    .add-area { padding: 12px 16px; border-top: 1px solid var(--border-inner); }
+    .add-trigger {
+      width: 100%; background: none; border: 1px dashed #1e1e30;
+      color: #2e2e45; font-family: var(--mono); font-size: 13px;
+      padding: 11px; border-radius: 4px; cursor: pointer; letter-spacing: 0.08em;
+    }
+    .add-trigger:active { border-color: var(--blue); color: var(--blue); }
+
+    .add-form-row { display: flex; gap: 8px; align-items: center; }
+    .new-input {
+      flex: 1; min-width: 0;
+      background: #08080f;
+      border-radius: 4px;
+      color: #e0e0f0;
+      font-family: var(--mono);
+      font-size: 14px;
+      padding: 9px 10px;
+      outline: none;
+      -webkit-appearance: none;
+      border: 1px solid #2a2a3f;
+    }
+    .new-input:focus { border-color: var(--focus-col, var(--long)); }
+
+    .add-confirm {
+      font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+      padding: 9px 13px; border-radius: 4px; cursor: pointer; flex-shrink: 0;
+      border: 1px solid var(--add-col, var(--long));
+      background: transparent;
+      color: var(--add-col, var(--long));
+    }
+    .cancel-add {
+      background: none; border: 1px solid #2a2a3f; color: #3a3a55;
+      font-family: var(--mono); font-size: 12px;
+      padding: 9px 9px; border-radius: 4px; cursor: pointer; flex-shrink: 0;
+    }
+
+    /* ── All clear ── */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .all-clear {
+      text-align: center; padding: 14px 16px;
+      font-family: var(--display); font-size: 16px; letter-spacing: 0.15em;
+      animation: pulse 1.5s ease infinite;
+      display: none;
+    }
+    .all-clear.visible { display: block; }
+    .all-clear.long-clear  { color: var(--long); }
+    .all-clear.short-clear { color: var(--short); }
+
+    /* ── Footer ── */
+    .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+    .footer-hint { font-size: 11px; color: #1e1e2e; letter-spacing: 0.07em; }
+    .reset-btn {
+      background: none; border: 1px solid #1e1e30; color: #2e2e45;
+      font-family: var(--mono); font-size: 11px;
+      padding: 6px 13px; border-radius: 4px; cursor: pointer; letter-spacing: 0.06em;
+    }
+    .reset-btn:active { border-color: var(--short); color: var(--short); }
+
+    /* ── Install banner ── */
+    .install-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #0d1020;
+      border: 1px solid #1e2a50;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      font-size: 12px;
+      color: #88aaff;
+      letter-spacing: 0.05em;
+    }
+    .install-banner.visible { display: flex; }
+    .install-now-btn {
+      background: #5588ff20;
+      border: 1px solid var(--blue);
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Install banner -->
+  <div class="install-banner" id="installBanner">
+    <span>📲 Install as app on your home screen</span>
+    <button class="install-now-btn" id="installBtn">INSTALL</button>
+  </div>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="header-sub">TRADE CHECKLIST //</div>
+      <div class="header-title" id="titleEl" contenteditable="true" spellcheck="false">SETUP REVIEW</div>
+    </div>
+    <div class="tab-switcher">
+      <button class="tab-btn long-tab active" id="longTab">▲ LONG</button>
+      <button class="tab-btn short-tab" id="shortTab">▼ SHORT</button>
+    </div>
+  </div>
+
+  <div class="card long-mode" id="card">
+    <div class="status-bar">
+      <div class="status-left">
+        <span class="side-badge long" id="sideBadge">▲ LONG</span>
+        <span class="status-label" id="statusLabel">NOT READY</span>
+      </div>
+      <div class="status-count"><b id="checkedCount">0</b> / <span id="totalCount">0</span></div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <ul class="checklist" id="checklist"></ul>
+    <div class="all-clear long-clear" id="allClear">▶ ALL CONDITIONS MET — TRADE VALID ◀</div>
+
+    <div class="add-area">
+      <button class="add-trigger" id="addTrigger">+ ADD CRITERIA</button>
+      <div id="addForm" style="display:none">
+        <div class="add-form-row">
+          <input class="new-input" id="newInput" type="text" placeholder="Enter criteria..." autocomplete="off" />
+          <button class="add-confirm" id="addConfirm">ADD</button>
+          <button class="cancel-add" id="addCancel">✕</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-hint">TAP TO CHECK · ✎ TO EDIT</div>
+    <button class="reset-btn" id="resetBtn">RESET ALL</button>
+  </div>
+
+</div>
+<script>
+  // ── Service Worker ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        await navigator.serviceWorker.register('./sw.js');
+        console.log('Service Worker Registered');
+      } catch (err) {
+        console.log('SW registration failed:', err);
+      }
+    });
+  }
+
+  // ── PWA install prompt ──
+  let deferredPrompt = null;
+  const installBanner = document.getElementById('installBanner');
+  const installBtn    = document.getElementById('installBtn');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBanner.classList.add('visible');
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBanner.classList.remove('visible');
+  });
+  window.addEventListener('appinstalled', () => {
+    installBanner.classList.remove('visible');
+  });
+
+  // ── App state ──
+  const STORAGE_KEY = 'trade-checklist-v3';
+
+  const defaults = {
+    long: [
+      { id: 11, text: 'Price is above 200 EMA', checked: false },
+      { id: 12, text: 'Higher highs & higher lows structure', checked: false },
+      { id: 13, text: 'RSI above 50 and rising', checked: false },
+      { id: 14, text: 'Volume expanding on up-moves', checked: false },
+      { id: 15, text: 'Risk/Reward ratio at least 2:1', checked: false },
+      { id: 16, text: 'Stop loss placed below key support', checked: false },
+    ],
+    short: [
+      { id: 21, text: 'Price is below 200 EMA', checked: false },
+      { id: 22, text: 'Lower highs & lower lows structure', checked: false },
+      { id: 23, text: 'RSI below 50 and falling', checked: false },
+      { id: 24, text: 'Volume expanding on down-moves', checked: false },
+      { id: 25, text: 'Risk/Reward ratio at least 2:1', checked: false },
+      { id: 26, text: 'Stop loss placed above key resistance', checked: false },
+    ],
+  };
+
+  let state     = loadState();
+  let side      = 'long';
+  let editingId = null;
+
+  function loadState() {
+    try {
+      const s = localStorage.getItem(STORAGE_KEY);
+      return s ? JSON.parse(s) : clone(defaults);
+    } catch { return clone(defaults); }
+  }
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
+  function clone(o)    { return JSON.parse(JSON.stringify(o)); }
+  function items()     { return state[side]; }
+  function setItems(a) { state[side] = a; saveState(); }
+
+  // DOM
+  const card         = document.getElementById('card');
+  const listEl       = document.getElementById('checklist');
+  const statusLabel  = document.getElementById('statusLabel');
+  const sideBadge    = document.getElementById('sideBadge');
+  const checkedEl    = document.getElementById('checkedCount');
+  const totalEl      = document.getElementById('totalCount');
+  const progressFill = document.getElementById('progressFill');
+  const allClear     = document.getElementById('allClear');
+  const addTrigger   = document.getElementById('addTrigger');
+  const addForm      = document.getElementById('addForm');
+  const newInput     = document.getElementById('newInput');
+  const addConfirm   = document.getElementById('addConfirm');
+  const addCancel    = document.getElementById('addCancel');
+  const resetBtn     = document.getElementById('resetBtn');
+  const longTab      = document.getElementById('longTab');
+  const shortTab     = document.getElementById('shortTab');
+  const titleEl      = document.getElementById('titleEl');
+
+  longTab.addEventListener('click',  () => switchSide('long'));
+  shortTab.addEventListener('click', () => switchSide('short'));
+
+  function switchSide(s) {
+    editingId = null;
+    side = s;
+    closeAddForm();
+    longTab.classList.toggle('active',  s === 'long');
+    shortTab.classList.toggle('active', s === 'short');
+    render();
+  }
+
+  function render() {
+    const it      = items();
+    const checked = it.filter(i => i.checked).length;
+    const total   = it.length;
+    const pct     = total ? (checked / total) * 100 : 0;
+    const all     = checked === total && total > 0;
+    const isLong  = side === 'long';
+    const accent  = isLong ? '#00e676' : '#ff4455';
+
+    card.className = 'card ' + (isLong ? 'long-mode' : 'short-mode');
+    sideBadge.className   = 'side-badge ' + (isLong ? 'long' : 'short');
+    sideBadge.textContent = isLong ? '▲ LONG' : '▼ SHORT';
+
+    let txt = 'NOT READY', col = '#ff5544';
+    if (!total)             { txt = 'NO CRITERIA'; col = '#444'; }
+    else if (!checked)      { txt = 'NOT READY';   col = isLong ? '#ff6644' : '#ff4455'; }
+    else if (pct < 50)      { txt = 'CAUTION';     col = '#ff8800'; }
+    else if (checked<total) { txt = 'PARTIAL';     col = '#f0c040'; }
+    else                    { txt = 'EXECUTE';     col = accent; }
+    statusLabel.textContent = txt;
+    statusLabel.style.color = col;
+
+    checkedEl.textContent = checked;
+    totalEl.textContent   = total;
+    progressFill.style.width      = pct + '%';
+    progressFill.style.background = all ? accent : pct > 50 ? '#f0c040' : '#ff6600';
+
+    allClear.className = 'all-clear ' + (isLong ? 'long-clear' : 'short-clear') + (all ? ' visible' : '');
+    addConfirm.style.setProperty('--add-col', accent);
+    newInput.style.setProperty('--focus-col', accent);
+
+    listEl.innerHTML = '';
+    it.forEach(item => {
+      if (editingId === item.id) {
+        const li = document.createElement('li');
+        li.className = 'edit-row';
+        li.innerHTML = `
+          <input class="edit-input" type="text" value="${esc(item.text)}" autocomplete="off" />
+          <button class="save-btn">SAVE</button>
+          <button class="cancel-small">✕</button>
+        `;
+        const inp = li.querySelector('.edit-input');
+        li.querySelector('.save-btn').addEventListener('click', () => commitEdit(item.id, inp.value));
+        li.querySelector('.cancel-small').addEventListener('click', () => { editingId = null; render(); });
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter')  commitEdit(item.id, inp.value);
+          if (e.key === 'Escape') { editingId = null; render(); }
+        });
+        listEl.appendChild(li);
+        setTimeout(() => { inp.focus(); inp.setSelectionRange(999,999); }, 20);
+      } else {
+        const li = document.createElement('li');
+        li.className = 'checklist-row' + (item.checked ? ' is-checked' : '');
+        const checkClass = item.checked ? (isLong ? ' long-checked' : ' short-checked') : '';
+        li.innerHTML = `
+          <div class="check-box${checkClass}">${item.checked ? '✓' : ''}</div>
+          <span class="item-text${item.checked ? ' crossed' : ''}">${esc(item.text)}</span>
+          <div class="row-btns">
+            <button class="icon-btn edit-btn">✎</button>
+            <button class="icon-btn delete-btn">✕</button>
+          </div>
+        `;
+        li.addEventListener('click', e => {
+          if (e.target.closest('.row-btns')) return;
+          toggleItem(item.id, li);
+        });
+        li.querySelector('.edit-btn').addEventListener('click', e => {
+          e.stopPropagation(); editingId = item.id; render();
+        });
+        li.querySelector('.delete-btn').addEventListener('click', e => {
+          e.stopPropagation();
+          setItems(items().filter(i => i.id !== item.id));
+          if (editingId === item.id) editingId = null;
+          render();
+        });
+        listEl.appendChild(li);
+      }
+    });
+  }
+
+  function toggleItem(id, rowEl) {
+    setItems(items().map(i => i.id === id ? { ...i, checked: !i.checked } : i));
+    rowEl.classList.add('pop');
+    setTimeout(() => rowEl.classList.remove('pop'), 350);
+    render();
+  }
+
+  function commitEdit(id, val) {
+    val = val.trim();
+    if (!val) return;
+    setItems(items().map(i => i.id === id ? { ...i, text: val } : i));
+    editingId = null;
+    render();
+  }
+
+  addTrigger.addEventListener('click', () => {
+    addTrigger.style.display = 'none';
+    addForm.style.display = 'block';
+    newInput.focus();
+  });
+  function confirmAdd() {
+    const val = newInput.value.trim();
+    if (!val) return;
+    setItems([...items(), { id: Date.now(), text: val, checked: false }]);
+    newInput.value = '';
+    closeAddForm();
+    render();
+  }
+  function closeAddForm() {
+    newInput.value = '';
+    addTrigger.style.display = '';
+    addForm.style.display = 'none';
+  }
+  addConfirm.addEventListener('click', confirmAdd);
+  addCancel.addEventListener('click', closeAddForm);
+  newInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  confirmAdd();
+    if (e.key === 'Escape') closeAddForm();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    setItems(items().map(i => ({ ...i, checked: false })));
+    render();
+  });
+
+  titleEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } });
+  titleEl.addEventListener('input', () => {
+    const s = window.getSelection(), offset = s.focusOffset;
+    titleEl.textContent = titleEl.textContent.toUpperCase();
+    try {
+      const r = document.createRange();
+      const node = titleEl.firstChild || titleEl;
+      r.setStart(node, Math.min(offset, node.length || 0));
+      r.collapse(true);
+      s.removeAllRanges(); s.addRange(r);
+    } catch {}
+  });
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  render();
+</script>
+</body>
+</html>
